@@ -1,0 +1,19 @@
+%该函数实现分段线性混沌映射PWLCM
+function y = PWLCMEx(x,p)
+if x == 0 || x == 1
+    %逻辑判断，检测异常
+    disp('data overflow'); y = 0.013333;
+end
+if x < p
+    y = x/p;
+elseif x<0.5
+    y = (x-p)/(0.5-p);
+else
+    x = 1-x;
+    if x<p
+        y = x/p;
+    else
+        y = (x-p)/(0.5-p);
+    end
+end
+end
