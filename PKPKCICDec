@@ -1,0 +1,93 @@
+function [P2] = PKPKCICDec(C2,I,X,Y,Z)
+%该函数实现融合公钥和私钥的数字图像解密算法
+%主要包括遮盖算法、扩散算法和置乱算法
+%该PKPKCICDec函数的输入为密文图像C2
+%以及密钥生成器产生的伪随机矩阵I、密码矩阵X,Y和Z
+%其中这里的伪随机矩阵以及密码矩阵和加密产生的一样
+%函数的输出为明文图像P
+
+%解密过程过程如下
+%遮盖II的逆操作
+%零矩阵，用来保存中间结果
+
+[M,N] = size(C2);
+E2 = zeros(M,N);
+for i = 1:M
+    for j = 1:N
+        if X(i,j)>0
+            E2(i,j) = C2(i,j);
+        else
+            %异或扩散函数
+            E2(i,j) = bitxor(C2(i,j),I(i,j));
+        end
+    end
+end
+
+%扩散II逆操作
+D2 = zeros(M,N);
+for i = M:-1:1
+    for j = N:-1:1
+        if i == M && j == N
+            D2(i,j) = mod(256 + E2(i,j) - Z(i,j),256);
+        elseif i == M
+            D2(i,j) = mod(512 + E2(i,j) - Z(i,j) - E2(i,j+1),256);
+        elseif j == N
+            D2(i,j) = mod(768 + E2(i,j) - Z(i,j) - E2(i+1,j) - E2(i+1,1),256);
+        else
+            D2(i,j) = mod(768 + E2(i,j) - Z(i,j) - E2(i+1,j) - E2(i,j+1),256);
+        end
+    end
+end
+
+%置乱的逆操作
+Ho = sum(D2,2);
+Ve = sum(D2,1);
+Iho = sum(I,2);
+Ive = sum(I,1);
+for i = M:-1:1
+    for j = N:-1:1
+        m = mod(Ho(i) - D2(i,j) + Iho(i) + I(i,j),M) + 1;
+        n = mod(Ve(j) - D2(i,j) + Ive(j) + I(i,j),N) + 1;
+        if m~=i && n~=j
+            Ho(i) = Ho(i) - D2(i,j) + D2(m,n);
+            Ve(j) = Ve(j) - D2(i,j) + D2(m,n);
+            Ho(m) = Ho(m) - D2(m,n) + D2(i,j);
+            Ve(n) = Ve(n) - D2(m,n) + D2(i,j);
+            tp = D2(i,j);  
+            D2(i,j) = D2(m,n); 
+            D2(m,n) = tp;
+        end
+    end
+end
+B2 = D2;
+
+%扩散I逆操作
+%零矩阵
+A2 = zeros(M,N);
+for i = 1:M
+    for j = 1:N
+        if i == 1 && j == 1
+            A2(i,j) = mod(256 + B2(i,j) - Y(i,j),256);
+        elseif i == 1
+            A2(i,j) = mod(512 + B2(i,j) - Y(i,j) - B2(i,j-1),256);
+        elseif j == 1
+            A2(i,j) = mod(768 + B2(i,j) - Y(i,j) - B2(i-1,j) - B2(i-1,N),256);
+        else
+            A2(i,j) = mod(768 + B2(i,j) - Y(i,j) - B2(i-1,j) - B2(i,j-1),256);
+        end
+    end
+end
+
+%遮盖I的逆操作
+%零矩阵
+P2 = zeros(M,N);
+for i = 1:M
+    for j = 1:N
+        if X(i,j)>0
+            P2(i,j) = bitxor(A2(i,j),I(i,j));
+        else
+            P2(i,j) = A2(i,j);
+        end
+    end
+end
+end
