@@ -1,0 +1,94 @@
+function [C] = PKPKCICEnc(P,I,X,Y,Z)
+%该函数实现融合公钥和私钥的数字图像加密算法
+%主要包括遮盖算法、扩散算法和置乱算法
+%该PKPKCICEnc函数的输入为明文图像P
+%以及密钥生成器产生的伪随机矩阵I、密码矩阵X,Y和Z
+%函数的输出为密文图像C
+
+%加密过程过程如下
+%遮盖I
+%计算明文图像P的所对应矩阵的函数M和N
+[M,N] = size(P);
+
+%产生M*N的零矩阵
+A = zeros(M,N);
+% 遮盖I操作
+%循环
+for i = 1:M
+    for j = 1:N
+        if X(i,j)>0
+            %异或扩散
+            A(i,j) = bitxor(P(i,j),I(i,j));
+        else
+            A(i,j) = P(i,j);
+        end
+    end
+end
+
+%扩散I
+%正向扩散，在加密算法中使用
+%产生零矩阵
+B = zeros(M,N);
+for i = 1:M
+    for j = 1:N
+        if i == 1 && j == 1
+            B(i,j) = mod(A(i,j) + Y(i,j),256);
+        elseif i == 1
+            B(i,j) = mod(A(i,j) + Y(i,j) + B(i,j-1),256);
+        elseif j == 1
+            B(i,j) = mod(A(i,j) + Y(i,j) + B(i-1,j) + B(i-1,N),256);
+        else
+            B(i,j) = mod(A(i,j) + Y(i,j) + B(i-1,j) + B(i,j-1),256);
+        end
+    end
+end
+
+%置乱
+Ho = sum(B,2);
+Ve = sum(B,1);
+Iho = sum(I,2);
+Ive = sum(I,1);
+for i = 1:M
+    for j = 1:N
+        m = mod(Ho(i) - B(i,j) + Iho(i) + I(i,j),M) + 1;
+        n = mod(Ve(j) - B(i,j) + Ive(j) + I(i,j),N) + 1;
+        if m~=i && n~=j
+            Ho(i) = Ho(i) - B(i,j) + B(m,n);
+            Ve(j) = Ve(j) - B(i,j) + B(m,n);
+            Ho(m) = Ho(m) - B(m,n) + B(i,j);
+            Ve(n) = Ve(n) - B(m,n) + B(i,j);
+            tp = B(i,j);  B(i,j) = B(m,n);  B(m,n) = tp;
+        end
+    end
+end
+%赋值
+D = B;
+%扩散II
+E = zeros(M,N);
+for i = M:-1:1
+    for j = N:-1:1
+        if i == M && j == N
+            E(i,j) = mod(D(i,j) + Z(i,j),256);
+        elseif i == M
+            E(i,j) = mod(D(i,j) + Z(i,j) + E(i,j+1),256);
+        elseif j == N
+            E(i,j) = mod(D(i,j) + Z(i,j) + E(i+1,j) + E(i+1,1),256);
+        else
+            E(i,j) = mod(D(i,j) + Z(i,j) + E(i+1,j) + E(i,j+1),256);
+        end
+    end
+end
+
+%遮盖II
+%零矩阵
+C = zeros(M,N);
+for i = 1:M
+    for j = 1:N
+        if X(i,j)>0
+            C(i,j) = E(i,j);
+        else
+            C(i,j) = bitxor(E(i,j),I(i,j));
+        end
+    end
+end
+end
